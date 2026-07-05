@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  super-agent:
+    build: .
+    container_name: super_agent_service
+    restart: always
+    environment:
+      - PUSH_PLUS_TOKEN=${PUSH_PLUS_TOKEN}
+      - THS_USERNAME=${THS_USERNAME}
+      - THS_PASSWORD=${THS_PASSWORD}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - GLM_API_KEY=${GLM_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./knowledge/wiki_storage:/app/knowledge/wiki_storage
+      - ./knowledge/graph_storage:/app/knowledge/graph_storage
+      - ./knowledge/chroma:/app/knowledge/chroma
+      - ./knowledge/change_logs:/app/knowledge/change_logs
+      - ./logs:/app/logs
+      - ./output:/app/output
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

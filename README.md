@@ -254,6 +254,94 @@ config.ths.password = 'your_password'
 - **基建**: +12.0% (强烈推荐)
 - **非银行金融**: +10.0% (强烈推荐)
 
+## ☁️ 云服务器部署（24小时不间断运行）
+
+为了确保数据后台推送在TRAE关闭或电脑关机后仍能持续运行，推荐部署到云服务器。
+
+### 方式一：Docker部署（推荐）
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/zhongerhenglu/AIandBusinessInovation_xiaochuangai.git
+cd AIandBusinessInovation_xiaochuangai
+
+# 2. 创建环境变量文件
+cp .env.example .env
+# 编辑 .env 文件，填写 PUSH_PLUS_TOKEN, THS_USERNAME, THS_PASSWORD 等
+
+# 3. 启动服务
+docker-compose up -d --build
+
+# 4. 查看日志
+docker logs -f super_agent_service
+
+# 5. 重启服务
+docker-compose restart
+
+# 6. 停止服务
+docker-compose down
+```
+
+### 方式二：自动部署脚本
+
+```bash
+# 使用部署脚本一键部署到云服务器
+chmod +x deploy_to_cloud.sh
+./deploy_to_cloud.sh root@your_server_ip
+```
+
+### 方式三：手动部署到Linux服务器
+
+```bash
+# 1. 登录服务器
+ssh root@your_server_ip
+
+# 2. 安装依赖
+apt-get update && apt-get install -y python3 python3-pip git
+pip3 install -r requirements.txt
+
+# 3. 克隆仓库
+git clone https://github.com/zhongerhenglu/AIandBusinessInovation_xiaochuangai.git
+cd AIandBusinessInovation_xiaochuangai
+
+# 4. 设置环境变量
+export PUSH_PLUS_TOKEN=your_token
+export THS_USERNAME=ceshi5101
+export THS_PASSWORD=76wPY4Uf
+
+# 5. 使用nohup后台运行
+nohup python3 start_background_service.py > service.log 2>&1 &
+
+# 6. 查看进程
+ps aux | grep start_background_service
+```
+
+### 部署注意事项
+
+1. **选择云服务器**: 阿里云、腾讯云、华为云等，推荐配置：2核4G内存
+2. **防火墙设置**: 确保服务器可以访问外网（PushPlus、同花顺API）
+3. **数据持久化**: 使用Docker volumes或手动挂载目录保存数据
+4. **日志监控**: 定期查看日志确保服务正常运行
+5. **自动重启**: 使用Docker restart: always或systemd服务
+
+### Docker Compose配置说明
+
+```yaml
+version: '3.8'
+
+services:
+  super-agent:
+    restart: always          # 容器退出自动重启
+    environment:             # 通过环境变量传递敏感信息
+      - PUSH_PLUS_TOKEN=${PUSH_PLUS_TOKEN}
+      - THS_USERNAME=${THS_USERNAME}
+      - THS_PASSWORD=${THS_PASSWORD}
+    volumes:                 # 数据持久化存储
+      - ./data:/app/data
+      - ./knowledge:/app/knowledge
+      - ./logs:/app/logs
+```
+
 ## 📦 提交为GitHub项目
 
 ### 创建GitHub仓库
