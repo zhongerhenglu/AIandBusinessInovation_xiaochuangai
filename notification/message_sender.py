@@ -16,7 +16,7 @@ class PushPlusSender:
                 from config import CONFIG
                 self.token = CONFIG.notification.push_plus_token
             except ImportError:
-                self.token = '512af99925174d1eb36df9c5567694bb'
+                self.token = ''
         self.base_url = 'https://www.pushplus.plus/send'
     
     def send_message(self, title: str, content: str, template: str = 'txt', 

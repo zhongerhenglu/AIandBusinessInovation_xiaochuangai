@@ -67,6 +67,14 @@ class NotificationConfig:
 
 
 @dataclass
+class THSConfig:
+    username: str = ""
+    password: str = ""
+    api_url: str = "https://data.10jqka.com.cn"
+    timeout: int = 30
+
+
+@dataclass
 class SystemConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     data: DataConfig = field(default_factory=DataConfig)
@@ -75,6 +83,7 @@ class SystemConfig:
     section: SectionConfig = field(default_factory=SectionConfig)
     archive: ArchiveConfig = field(default_factory=ArchiveConfig)
     notification: NotificationConfig = field(default_factory=NotificationConfig)
+    ths: THSConfig = field(default_factory=THSConfig)
     output_dir: str = "./output"
     log_dir: str = "./logs"
 
@@ -89,7 +98,10 @@ def load_config() -> SystemConfig:
         "glm": os.getenv("GLM_API_KEY", "")
     }
     
-    config.notification.push_plus_token = os.getenv("PUSH_PLUS_TOKEN", "512af99925174d1eb36df9c5567694bb")
+    config.notification.push_plus_token = os.getenv("PUSH_PLUS_TOKEN", "")
+    
+    config.ths.username = os.getenv("THS_USERNAME", "")
+    config.ths.password = os.getenv("THS_PASSWORD", "")
     
     return config
 

@@ -188,7 +188,42 @@ export DEEPSEEK_API_KEY=your_key
 export KIMI_API_KEY=your_key
 export GLM_API_KEY=your_key
 export PUSH_PLUS_TOKEN=your_pushplus_token
+export THS_USERNAME=your_ths_username
+export THS_PASSWORD=your_ths_password
 ```
+
+### 同花顺数据接口配置
+
+系统支持同花顺数据接口获取真实股票数据，配置方式：
+
+#### 方式一：环境变量
+```bash
+export THS_USERNAME=ceshi5101
+export THS_PASSWORD=76wPY4Uf
+```
+
+#### 方式二：创建 .env 文件
+```bash
+cp .env.example .env
+# 编辑 .env 文件，填写 THS_USERNAME 和 THS_PASSWORD
+```
+
+#### 方式三：代码中设置（不推荐）
+在 `config.py` 中配置：
+```python
+config.ths.username = 'your_username'
+config.ths.password = 'your_password'
+```
+
+**注意**: 同花顺账号信息属于敏感信息，请勿提交到版本控制系统！系统会自动忽略 `.env` 文件。
+
+### 数据自动归档
+
+系统会自动归档每日数据：
+- 归档目录: `./data/archive/`
+- 归档内容: 市场概况、市场统计、热门股票、行业表现
+- 报告归档: 早间/午间/下午/晚间/每日汇总报告
+- 自动清理: 保留最近30天的数据，自动删除旧数据
 
 ## 📊 输出文件
 
