@@ -17,6 +17,7 @@ from quant.quant_analyzer import QuantAnalyzer
 from quant.chart_generator import ChartGenerator
 from quant.data_cross_section import DataCrossSection, PredictionValidator, FactorImprovementEngine
 from perception.ths_data_provider import THSDataProvider
+from perception.economic_data_provider import EconomicDataProvider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,6 +90,7 @@ class BackgroundService:
         self.quant_analyzer = QuantAnalyzer()
         self.chart_generator = ChartGenerator()
         self.ths_provider = THSDataProvider()
+        self.economic_provider = EconomicDataProvider()
         self.data_archiver = DataArchiver()
         self.cross_section = DataCrossSection()
         self.prediction_validator = PredictionValidator(self.cross_section)
@@ -170,6 +172,16 @@ class BackgroundService:
             minute=0,
             day_of_week=5
         )
+        
+        send_times = [8, 12, 16, 20, 24]
+        for hour in send_times:
+            self.scheduler.add_daily_task(
+                task_id=f'economic_data_update_{hour}',
+                name=f'经济数据更新_{hour}:00',
+                callback=self.fetch_and_update_economic_data,
+                hour=hour if hour != 24 else 0,
+                minute=0
+            )
         
         await self.scheduler.start()
         self._running = True
@@ -289,6 +301,27 @@ class BackgroundService:
             logger.info("Daily data archive completed")
         except Exception as e:
             logger.error(f"Error during data archive: {str(e)}", exc_info=True)
+    
+    async def fetch_and_update_economic_data(self):
+        try:
+            economic_report = self.economic_provider.get_economic_report()
+            logger.info(f"Fetched economic data at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            self.knowledge_base.change_logger.log_knowledge_ingest(
+                'economic_data_update', 
+                'economic_report',
+                extracted_entities=len(self.economic_provider.fetch_macro_data().get('indicators', [])),
+                extracted_relations=0
+            )
+            
+            self.data_archiver.archive_market_data(
+                self.economic_provider.fetch_macro_data(), 
+                "economic_data"
+            )
+            
+            logger.info("Economic data updated and archived")
+        except Exception as e:
+            logger.error(f"Error fetching economic data: {str(e)}", exc_info=True)
     
     async def generate_daily_cross_section(self):
         try:
@@ -527,6 +560,22 @@ class BackgroundService:
             sections.append("\n### 🔧 改进建议")
             for action in improvement_report['improvement_actions'][:3]:
                 sections.append(f"- {action['description']}")
+        
+        economic_data = self.economic_provider.fetch_macro_data()
+        if economic_data.get('indicators'):
+            sections.append("\n### 📊 宏观经济数据")
+            key_indicators = ['GDP同比增速', 'CPI同比', 'PMI', 'M2增速']
+            for indicator in economic_data['indicators']:
+                if indicator['name'] in key_indicators:
+                    value = indicator['value']
+                    unit = indicator.get('unit', '')
+                    icon = '📈' if value > 0 else '📉'
+                    sections.append(f"- {icon} **{indicator['name']}**: {value}{unit}")
+            
+            if economic_data.get('summary', {}).get('key_highlights'):
+                sections.append("\n**关键亮点**:")
+                for highlight in economic_data['summary']['key_highlights'][:3]:
+                    sections.append(f"- {highlight}")
         
         knowledge_stats = self.knowledge_base.get_stats()
         change_report = self.knowledge_base.get_change_report(24)
