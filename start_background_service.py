@@ -314,10 +314,34 @@ class BackgroundService:
             sections.append("")
         
         knowledge_stats = self.knowledge_base.get_stats()
+        change_report = self.knowledge_base.get_change_report(4)
+        
         sections.append("\n### 🧠 知识体系更新")
         sections.append(f"- **总页面数**: {knowledge_stats['total_pages']}")
         sections.append(f"- **图谱节点**: {knowledge_stats['total_nodes']}")
         sections.append(f"- **今日更新**: {knowledge_stats['today_updates']}")
+        sections.append(f"- **今日更改**: {knowledge_stats['today_changes']}")
+        
+        recent_changes = self.knowledge_base.change_logger.get_recent_changes(4)
+        if recent_changes:
+            sections.append("\n**最近4小时更改记录**:")
+            for i, change in enumerate(recent_changes[:5], 1):
+                timestamp = datetime.fromisoformat(change['timestamp'])
+                time_str = timestamp.strftime('%H:%M:%S')
+                icon = {
+                    'CREATE': '🆕',
+                    'ADD': '➕',
+                    'UPDATE': '🔄',
+                    'DELETE': '🗑️',
+                    'INGEST': '📥'
+                }.get(change['change_type'], '📋')
+                commit_msg = change.get('commit_message', '')
+                if commit_msg:
+                    sections.append(f"{i}. {icon} {time_str} | {commit_msg}")
+                else:
+                    sections.append(f"{i}. {icon} {time_str} | {change['entity_type']}: {change['entity_id']}")
+        else:
+            sections.append("\n**最近4小时无更改记录**")
         
         return '\n\n'.join(sections)
     
@@ -388,16 +412,53 @@ class BackgroundService:
         sections.append(f"- **目标位**: {trend_analysis['medium_term']['target']}")
         
         knowledge_stats = self.knowledge_base.get_stats()
+        change_report = self.knowledge_base.get_change_report(24)
+        
         sections.append("\n### 🧠 知识体系今日更新")
         sections.append(f"- **总页面数**: {knowledge_stats['total_pages']}")
         sections.append(f"- **图谱节点**: {knowledge_stats['total_nodes']}")
+        sections.append(f"- **图谱边**: {knowledge_stats['graph']['total_edges']}")
+        sections.append(f"- **文档数量**: {knowledge_stats['documents']}")
         sections.append(f"- **今日更新**: {knowledge_stats['today_updates']}")
+        sections.append(f"- **今日更改**: {knowledge_stats['today_changes']}")
         
-        recent_updates = self.knowledge_base.get_recent_updates(hours=24)
-        if recent_updates:
-            sections.append("\n**今日新增/更新页面**:")
-            for update in recent_updates[:5]:
-                sections.append(f"- {update.get('title', '')}")
+        today_changes = self.knowledge_base.change_logger.get_today_changes()
+        if today_changes:
+            sections.append("\n**📝 今日详细更改记录**:")
+            
+            change_by_type = {}
+            for change in today_changes:
+                ct = change['change_type']
+                change_by_type[ct] = change_by_type.get(ct, 0) + 1
+            
+            for ct, count in change_by_type.items():
+                icon = {
+                    'CREATE': '🆕',
+                    'ADD': '➕',
+                    'UPDATE': '🔄',
+                    'DELETE': '🗑️',
+                    'INGEST': '📥'
+                }.get(ct, '📋')
+                sections.append(f"- {icon} {ct}: {count} 次")
+            
+            sections.append("\n**详细记录**:")
+            for i, change in enumerate(today_changes[:10], 1):
+                timestamp = datetime.fromisoformat(change['timestamp'])
+                time_str = timestamp.strftime('%H:%M:%S')
+                icon = {
+                    'CREATE': '🆕',
+                    'ADD': '➕',
+                    'UPDATE': '🔄',
+                    'DELETE': '🗑️',
+                    'INGEST': '📥'
+                }.get(change['change_type'], '📋')
+                commit_msg = change.get('commit_message', '')
+                if commit_msg:
+                    sections.append(f"{i}. {icon} {time_str} | {commit_msg}")
+                else:
+                    sections.append(f"{i}. {icon} {time_str} | {change['entity_type']}: {change['entity_id']}")
+        else:
+            sections.append("\n**今日无更改记录**")
         
         return '\n\n'.join(sections)
     

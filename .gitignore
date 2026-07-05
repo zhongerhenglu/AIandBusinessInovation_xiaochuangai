@@ -18,6 +18,7 @@ data/
 knowledge/wiki_storage/
 knowledge/graph_storage/
 knowledge/chroma/
+knowledge/change_logs/
 
 .DS_Store
 Thumbs.db
