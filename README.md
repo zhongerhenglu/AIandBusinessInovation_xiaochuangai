@@ -141,10 +141,45 @@ python test_notification.py
 ## 🔧 配置说明
 
 ### PushPlus通知配置
-在 `notification/message_sender.py` 中配置 PushPlus Token：
+
+#### 方式一：环境变量（推荐）
+```bash
+export PUSH_PLUS_TOKEN=your_pushplus_token
+```
+
+#### 方式二：代码中设置
+在 `notification/message_sender.py` 中配置：
 ```python
 self.token = 'your_pushplus_token'
 ```
+
+#### 方式三：创建 .env 文件
+```bash
+# 创建 .env 文件
+echo "PUSH_PLUS_TOKEN=your_pushplus_token" > .env
+```
+
+### 消息同步机制
+
+#### 市场通知（每日）
+- **08:30**: 股市热点报告（日韩股市、美股热点统计）
+- **每周五08:30**: 股市周报
+- **每月1日08:30**: 股市月报
+- **每年1月/7月1日08:30**: 股市半年报
+- **每周一08:30**: 强势因子推荐报告
+
+#### 知识体系更新通知（每4小时）
+- **08:00**: 知识体系更新统计
+- **12:00**: 知识体系更新统计
+- **16:00**: 知识体系更新统计
+- **20:00**: 知识体系更新统计
+- **24:00**: 知识体系更新统计
+
+#### 消息队列机制
+系统使用消息队列确保消息可靠发送：
+1. 消息进入队列后立即保存到本地
+2. 发送失败时自动重试（最多3次）
+3. 重试失败的消息会记录到日志并在下次发送时重试
 
 ### 环境变量
 ```bash
@@ -152,6 +187,7 @@ export OPENAI_API_KEY=your_key
 export DEEPSEEK_API_KEY=your_key
 export KIMI_API_KEY=your_key
 export GLM_API_KEY=your_key
+export PUSH_PLUS_TOKEN=your_pushplus_token
 ```
 
 ## 📊 输出文件

@@ -57,6 +57,16 @@ class AgentConfig:
 
 
 @dataclass
+class NotificationConfig:
+    push_plus_token: str = ""
+    send_times: List[int] = field(default_factory=lambda: [8, 12, 16, 20, 24])
+    market_report_time: int = 8
+    market_report_minute: int = 30
+    max_retry_count: int = 3
+    queue_file: str = "./data/message_queue.json"
+
+
+@dataclass
 class SystemConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     data: DataConfig = field(default_factory=DataConfig)
@@ -64,6 +74,7 @@ class SystemConfig:
     agent: AgentConfig = field(default_factory=AgentConfig)
     section: SectionConfig = field(default_factory=SectionConfig)
     archive: ArchiveConfig = field(default_factory=ArchiveConfig)
+    notification: NotificationConfig = field(default_factory=NotificationConfig)
     output_dir: str = "./output"
     log_dir: str = "./logs"
 
@@ -77,6 +88,8 @@ def load_config() -> SystemConfig:
         "kimi": os.getenv("KIMI_API_KEY", ""),
         "glm": os.getenv("GLM_API_KEY", "")
     }
+    
+    config.notification.push_plus_token = os.getenv("PUSH_PLUS_TOKEN", "512af99925174d1eb36df9c5567694bb")
     
     return config
 

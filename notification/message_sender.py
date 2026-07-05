@@ -1,6 +1,7 @@
 import requests
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
 
@@ -9,7 +10,13 @@ logger = logging.getLogger(__name__)
 
 class PushPlusSender:
     def __init__(self, token: str = None):
-        self.token = token or '512af99925174d1eb36df9c5567694bb'
+        self.token = token or os.getenv('PUSH_PLUS_TOKEN', '')
+        if not self.token:
+            try:
+                from config import CONFIG
+                self.token = CONFIG.notification.push_plus_token
+            except ImportError:
+                self.token = '512af99925174d1eb36df9c5567694bb'
         self.base_url = 'https://www.pushplus.plus/send'
     
     def send_message(self, title: str, content: str, template: str = 'txt', 
