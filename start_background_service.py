@@ -15,6 +15,7 @@ from knowledge import EnhancedKnowledgeBase
 from quant.data_simulator import DataSimulator
 from quant.quant_analyzer import QuantAnalyzer
 from quant.chart_generator import ChartGenerator
+from quant.data_cross_section import DataCrossSection, PredictionValidator, FactorImprovementEngine
 from perception.ths_data_provider import THSDataProvider
 
 logging.basicConfig(
@@ -89,10 +90,14 @@ class BackgroundService:
         self.chart_generator = ChartGenerator()
         self.ths_provider = THSDataProvider()
         self.data_archiver = DataArchiver()
+        self.cross_section = DataCrossSection()
+        self.prediction_validator = PredictionValidator(self.cross_section)
+        self.factor_improvement_engine = FactorImprovementEngine(self.cross_section)
         
         self._running = False
         self._shutdown_event = asyncio.Event()
         self._last_report_data = {}
+        self._last_predictions = {}
     
     async def start(self):
         if self._running:
@@ -147,6 +152,23 @@ class BackgroundService:
             callback=self.archive_daily_data,
             hour=23,
             minute=59
+        )
+        
+        self.scheduler.add_daily_task(
+            task_id='daily_cross_section',
+            name='每日数据截面生成',
+            callback=self.generate_daily_cross_section,
+            hour=15,
+            minute=30
+        )
+        
+        self.scheduler.add_daily_task(
+            task_id='weekly_validation_report',
+            name='周度预测验证报告',
+            callback=self.send_weekly_validation_report,
+            hour=10,
+            minute=0,
+            day_of_week=5
         )
         
         await self.scheduler.start()
@@ -267,6 +289,82 @@ class BackgroundService:
             logger.info("Daily data archive completed")
         except Exception as e:
             logger.error(f"Error during data archive: {str(e)}", exc_info=True)
+    
+    async def generate_daily_cross_section(self):
+        try:
+            market_data = self.ths_provider.get_market_overview()
+            hot_stocks = self.ths_provider.get_hot_stocks(30)
+            
+            factor_data = {}
+            for category, factor_ids in self.factor_library.factor_categories.items():
+                for factor_id in factor_ids:
+                    try:
+                        fd = self.ths_provider.get_factor_data(factor_id)
+                        factor_data[factor_id] = fd
+                    except Exception as e:
+                        logger.warning(f"Failed to get factor data for {factor_id}: {e}")
+            
+            cross_section = self.cross_section.generate_daily_cross_section(
+                market_data, factor_data, hot_stocks
+            )
+            self.cross_section.save_cross_section(cross_section['date'], cross_section)
+            
+            if self._last_predictions:
+                validation = self.prediction_validator.validate_predictions(
+                    self._last_predictions, cross_section
+                )
+                logger.info(f"Prediction validation completed: {validation['metrics']}")
+            
+            logger.info(f"Daily cross section generated for {cross_section['date']}")
+        except Exception as e:
+            logger.error(f"Error generating daily cross section: {str(e)}", exc_info=True)
+    
+    async def send_weekly_validation_report(self):
+        try:
+            validation_summary = self.prediction_validator.get_validation_summary()
+            improvement_report = self.factor_improvement_engine.generate_improvement_report()
+            
+            report = await self._generate_validation_report(validation_summary, improvement_report)
+            title = f"📋 周度预测验证报告 {time.strftime('%Y-%m-%d')}"
+            result = self.sender.send_markdown(title, report)
+            if result.get('success'):
+                logger.info("Weekly validation report sent successfully")
+                self.data_archiver.archive_daily_report(report, "weekly_validation")
+            else:
+                logger.error(f"Failed to send weekly validation report: {result.get('error')}")
+        except Exception as e:
+            logger.error(f"Error generating weekly validation report: {str(e)}", exc_info=True)
+    
+    async def _generate_validation_report(self, validation_summary: Dict, improvement_report: Dict) -> str:
+        sections = []
+        
+        sections.append("## 📋 周度预测验证报告")
+        sections.append(f"**生成时间**: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        sections.append("\n### ✅ 预测准确度")
+        sections.append(f"- **总验证次数**: {validation_summary.get('total_validations', 0)}")
+        sections.append(f"- **市场方向预测准确率**: {validation_summary.get('market_direction_accuracy', 0):.1%}")
+        sections.append(f"- **因子排名预测准确率**: {validation_summary.get('factor_ranking_accuracy', 0):.1%}")
+        sections.append(f"- **选股平均Alpha**: {validation_summary.get('stock_pick_avg_alpha', 0):+.2f}%")
+        sections.append(f"- **选股胜率**: {validation_summary.get('stock_pick_win_rate', 0):.1%}")
+        
+        if improvement_report.get('degrading_factors'):
+            sections.append("\n### 📉 因子衰减警告")
+            for factor in improvement_report['degrading_factors']:
+                decay_str = f"{factor['ic_decay']*100:+.1f}%"
+                sections.append(f"- **{factor['factor_name']}**: IC衰减 {decay_str} (近期IC: {factor['recent_avg_ic']:.4f})")
+        
+        if improvement_report.get('improvement_actions'):
+            sections.append("\n### 🔧 改进建议")
+            for action in improvement_report['improvement_actions'][:5]:
+                sections.append(f"- **{action['factor']}**: {action['description']}")
+        
+        if improvement_report.get('stable_factors'):
+            sections.append("\n### ✨ 表现稳定因子")
+            for factor in improvement_report['stable_factors'][:5]:
+                sections.append(f"- **{factor['factor_name']}**: IC={factor['avg_ic']:.4f} (近期: {factor['recent_avg_ic']:.4f})")
+        
+        return '\n\n'.join(sections)
     
     async def _generate_factor_report(self, period: str) -> str:
         sections = []
@@ -410,6 +508,25 @@ class BackgroundService:
         sections.append(f"- **支撑/压力**: {trend_analysis['short_term']['support']} / {trend_analysis['short_term']['resistance']}")
         sections.append(f"- **中期趋势**: {trend_analysis['medium_term']['trend']}")
         sections.append(f"- **目标位**: {trend_analysis['medium_term']['target']}")
+        
+        validation_summary = self.prediction_validator.get_validation_summary()
+        sections.append("\n### ✅ 预测验证")
+        sections.append(f"- **总验证次数**: {validation_summary.get('total_validations', 0)}")
+        sections.append(f"- **市场方向准确率**: {validation_summary.get('market_direction_accuracy', 0):.1%}")
+        sections.append(f"- **因子排名准确率**: {validation_summary.get('factor_ranking_accuracy', 0):.1%}")
+        sections.append(f"- **选股平均Alpha**: {validation_summary.get('stock_pick_avg_alpha', 0):+.2f}%")
+        
+        improvement_report = self.factor_improvement_engine.generate_improvement_report()
+        if improvement_report.get('degrading_factors'):
+            sections.append("\n### 📉 因子衰减警告")
+            for factor in improvement_report['degrading_factors'][:3]:
+                decay_str = f"{factor['ic_decay']*100:+.1f}%"
+                sections.append(f"- **{factor['factor_name']}**: IC衰减 {decay_str}")
+        
+        if improvement_report.get('improvement_actions'):
+            sections.append("\n### 🔧 改进建议")
+            for action in improvement_report['improvement_actions'][:3]:
+                sections.append(f"- {action['description']}")
         
         knowledge_stats = self.knowledge_base.get_stats()
         change_report = self.knowledge_base.get_change_report(24)
